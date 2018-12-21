@@ -1,0 +1,102 @@
+#droi-server-1 使用教程
+1、pom.xml 引入
+<dependency>
+			<groupId>com.zj.server-1</groupId>
+			<artifactId>droi-server-1</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
+	</dependency>
+2、修改启动文件
+  @SpringBootApplication
+public class DemoApplication implements CommandLineRunner {
+	
+	@Autowired
+	private HttpAcceptor nettyServer;
+
+	public static void main(String[] args) {
+		SpringApplication.run(DemoApplication.class, args);
+	}
+
+	@Override
+	public void run(String... args) throws Exception {
+        nettyServer.start();		
+	}
+}
+
+3、配置netty
+@Configuration
+public class NettyServerConfig {
+	
+	@Value("${droi.server.MetainfoUtils.package}")
+	private String bizMethodpackageName;
+	@Value("${droi.server.businessCourse.package}")
+	private String coursePackageName;
+	@Value("${encode.bytes.debug.enabled}")
+	private boolean isDebug;
+	@Value("${encode.bytes.encrypt.key}")
+	private String encryptKey;
+	@Value("${biz.request.threads}")
+	private int threads;
+	@Value("${bind.server.ip}")
+	private String host;
+	@Value("${export.server.port}")
+	private int port;
+	@Value("${inbound.idleTime}")
+	private int idleTime;
+	
+	@Bean(name="nettyServer",destroyMethod="stop")
+	public HttpAcceptor initAcceptor(){
+		HttpAcceptor httpInbound = new HttpAcceptor();
+		httpInbound.setAcceptIp(host);
+		httpInbound.setAcceptPort(port);
+		httpInbound.setIdleTime(idleTime);
+		httpInbound.setRequestDecoder(initRequestJSONDecoder());
+		httpInbound.setResponseEncoder(initResponseJSONEncoder());
+	    httpInbound.setMessageClosure(initDispatcher());	
+		return httpInbound;
+	}
+	
+	
+	@Bean(name="nettyDispatcher")
+	public SimpleDispatcher initDispatcher(){
+		SimpleDispatcher httpBizEntry = new SimpleDispatcher();
+		httpBizEntry.setThreads(threads);
+		httpBizEntry.setApplicationContextHepler(applicationContext());
+		ArrayList<String> packages = new ArrayList<String>();
+		packages.add(coursePackageName);
+		httpBizEntry.setCourses(initMetainfoUtils().getCourses());
+		return httpBizEntry;
+	}
+	
+	
+	@Bean(name="httpRequestJSONDecoder")
+	public HttpRequestJSONDecoder initRequestJSONDecoder(){
+		HttpRequestJSONDecoder httpRequestDecoder = new HttpRequestJSONDecoder();
+		httpRequestDecoder.setDebugEnabled(isDebug);
+		httpRequestDecoder.setEncryptKey(encryptKey.getBytes());
+		httpRequestDecoder.setTypeMetaInfo(initMetainfoUtils().getTypeMetainfo());
+		return httpRequestDecoder;
+	}
+	
+	
+	@Bean(name="httpResponseJSONEncoder")
+	public HttpResponseJSONEncoder initResponseJSONEncoder(){
+		HttpResponseJSONEncoder httpResponseEncoder = new HttpResponseJSONEncoder();
+		httpResponseEncoder.setDebugEnabled(isDebug);
+		httpResponseEncoder.setEncryptKey(encryptKey.getBytes());
+		return httpResponseEncoder;
+	}
+	
+	@Bean(name="typeMetaInfo",initMethod="init")
+	public MetainfoUtils initMetainfoUtils(){
+		return new MetainfoUtils();
+	}
+	
+	@Bean
+	public ApplicationContextHelper applicationContext(){
+		return new ApplicationContextHelper();
+	}
+
+}
+
+4、启动
+随着 DemoApplication启动,不需要单独启动
